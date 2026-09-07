@@ -7,6 +7,7 @@ import com.gabrielsena.cooperative_voting_api.domain.session.dto.OpenVotingSessi
 import com.gabrielsena.cooperative_voting_api.domain.topic.VotingTopic;
 import com.gabrielsena.cooperative_voting_api.domain.topic.VotingTopicRepository;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,41 +27,67 @@ public class VotingSessionService {
     private final Clock clock;
 
     @Transactional
-    public OpenVotingSessionResponse openSession(UUID topicId, OpenVotingSessionRequest request) {
+    public OpenVotingSessionResponse openSession(
+            UUID topicId,
+            OpenVotingSessionRequest request
+    ) {
 
         VotingTopic topic = votingTopicRepository.findById(topicId)
-                .orElseThrow(() -> new VotingTopicNotFoundException("Voting topic not found"));
+                .orElseThrow(() ->
+                        new VotingTopicNotFoundException("Voting topic not found")
+                );
 
-        if(votingSessionRepository.existsByVotingTopic_Id(topicId)) {
+        if (votingSessionRepository.existsByVotingTopic_Id(topicId)) {
 
             log.warn(
                     "Voting session creation rejected because session already exists: topicId={}",
                     topicId
             );
 
-            throw new VotingSessionAlreadyExistsException("Voting session already exists for this topic");
+            throw new VotingSessionAlreadyExistsException(
+                    "Voting session already exists for this topic"
+            );
         }
 
-        int durationMinutes = request.durationMinutes() == null ? 1 : request.durationMinutes();
+        int durationMinutes =
+                request.durationMinutes() == null
+                        ? 1
+                        : request.durationMinutes();
 
         Instant openedAt = Instant.now(clock);
         Instant closesAt = openedAt.plus(durationMinutes, ChronoUnit.MINUTES);
 
-        VotingSession session = new VotingSession(topic, openedAt, closesAt);
+        VotingSession session =
+                new VotingSession(topic, openedAt, closesAt);
 
-        VotingSession savedSession = votingSessionRepository.save(session);
+        try {
 
-        log.info(
-                "Voting session opened: topicId={}, closesAt={}",
-                topicId,
-                savedSession.getClosesAt()
-        );
+            VotingSession savedSession =
+                    votingSessionRepository.saveAndFlush(session);
 
-        return new OpenVotingSessionResponse(
-                savedSession.getId(),
-                savedSession.getVotingTopic().getId(),
-                savedSession.getOpenedAt(),
-                savedSession.getClosesAt()
-        );
+            log.info(
+                    "Voting session opened: topicId={}, closesAt={}",
+                    topicId,
+                    savedSession.getClosesAt()
+            );
+
+            return new OpenVotingSessionResponse(
+                    savedSession.getId(),
+                    savedSession.getVotingTopic().getId(),
+                    savedSession.getOpenedAt(),
+                    savedSession.getClosesAt()
+            );
+
+        } catch (DataIntegrityViolationException e) {
+
+            log.warn(
+                    "Voting session creation rejected by database constraint: topicId={}",
+                    topicId
+            );
+
+            throw new VotingSessionAlreadyExistsException(
+                    "Voting session already exists for this topic"
+            );
+        }
     }
 }
