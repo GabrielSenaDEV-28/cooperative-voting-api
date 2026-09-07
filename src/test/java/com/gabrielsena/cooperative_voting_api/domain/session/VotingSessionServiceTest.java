@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -54,7 +55,7 @@ class VotingSessionServiceTest {
         when(votingSessionRepository.existsByVotingTopic_Id(topicId))
             .thenReturn(false);
 
-        when(votingSessionRepository.save(any(VotingSession.class)))
+        when(votingSessionRepository.saveAndFlush(any(VotingSession.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         OpenVotingSessionResponse response = service.openSession(topicId, request);
@@ -64,7 +65,7 @@ class VotingSessionServiceTest {
 
         verify(votingTopicRepository).findById(topicId);
         verify(votingSessionRepository).existsByVotingTopic_Id(topicId);
-        verify(votingSessionRepository).save(any(VotingSession.class));
+        verify(votingSessionRepository).saveAndFlush(any(VotingSession.class));
     }
 
     @Test
@@ -90,7 +91,7 @@ class VotingSessionServiceTest {
         when(votingSessionRepository.existsByVotingTopic_Id(topicId))
                 .thenReturn(false);
 
-        when(votingSessionRepository.save(any(VotingSession.class)))
+        when(votingSessionRepository.saveAndFlush(any(VotingSession.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         OpenVotingSessionResponse response = service.openSession(topicId, request);
@@ -100,7 +101,7 @@ class VotingSessionServiceTest {
 
         verify(votingTopicRepository).findById(topicId);
         verify(votingSessionRepository).existsByVotingTopic_Id(topicId);
-        verify(votingSessionRepository).save(any(VotingSession.class));
+        verify(votingSessionRepository).saveAndFlush(any(VotingSession.class));
     }
 
     @Test
@@ -129,7 +130,7 @@ class VotingSessionServiceTest {
 
         verify(votingTopicRepository).findById(topicId);
         verify(votingSessionRepository, never()).existsByVotingTopic_Id(any());
-        verify(votingSessionRepository, never()).save(any(VotingSession.class));
+        verify(votingSessionRepository, never()).saveAndFlush(any(VotingSession.class));
     }
 
     @Test
@@ -163,6 +164,44 @@ class VotingSessionServiceTest {
         verify(votingTopicRepository).findById(topicId);
         verify(votingSessionRepository).existsByVotingTopic_Id(topicId);
         verify(votingSessionRepository, never())
-                .save(any(VotingSession.class));
+                .saveAndFlush(any(VotingSession.class));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenDatabaseRejectsConcurrentSessionCreation() {
+
+        UUID topicId = UUID.randomUUID();
+        VotingTopic topic = new VotingTopic("Budget approval");
+        Instant fixedInstant = Instant.parse("2026-09-06T20:00:00Z");
+
+        Clock clock = Clock.fixed(fixedInstant, ZoneOffset.UTC);
+
+        VotingSessionService service = new VotingSessionService(
+                votingSessionRepository,
+                votingTopicRepository,
+                clock
+        );
+
+        OpenVotingSessionRequest request = new OpenVotingSessionRequest(5);
+
+        when(votingTopicRepository.findById(topicId))
+                .thenReturn(Optional.of(topic));
+
+        when(votingSessionRepository.existsByVotingTopic_Id(topicId))
+                .thenReturn(false);
+
+        when(votingSessionRepository.saveAndFlush(any(VotingSession.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "Unique constraint violation"
+                ));
+
+        assertThrows(
+                VotingSessionAlreadyExistsException.class,
+                () -> service.openSession(topicId, request)
+        );
+
+        verify(votingTopicRepository).findById(topicId);
+        verify(votingSessionRepository).existsByVotingTopic_Id(topicId);
+        verify(votingSessionRepository).saveAndFlush(any(VotingSession.class));
     }
 }
