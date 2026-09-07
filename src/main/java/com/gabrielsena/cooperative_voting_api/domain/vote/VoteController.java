@@ -2,6 +2,8 @@ package com.gabrielsena.cooperative_voting_api.domain.vote;
 
 import com.gabrielsena.cooperative_voting_api.domain.vote.dto.CastVoteRequest;
 import com.gabrielsena.cooperative_voting_api.domain.vote.dto.CastVoteResponse;
+import com.gabrielsena.cooperative_voting_api.presentation.mobile.VoteSelectionService;
+import com.gabrielsena.cooperative_voting_api.presentation.mobile.dto.MobileSelectionResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,6 +18,7 @@ import java.util.UUID;
 public class VoteController {
 
     private final VoteService voteService;
+    private final VoteSelectionService voteSelectionService;
 
     @PostMapping
     public ResponseEntity<CastVoteResponse> castVote(
@@ -25,6 +28,17 @@ public class VoteController {
         CastVoteResponse response = voteService.castVote(topicId, request);
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/form")
+    public ResponseEntity<MobileSelectionResponse> getVoteForm(
+            @PathVariable UUID topicId,
+            @RequestParam UUID associateId
+    ) {
+        MobileSelectionResponse response =
+                voteSelectionService.buildVoteSelection(topicId, associateId);
+
+        return ResponseEntity.ok(response);
     }
 
 }
