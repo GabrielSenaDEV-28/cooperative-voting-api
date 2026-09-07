@@ -4,6 +4,7 @@ import com.gabrielsena.cooperative_voting_api.domain.exception.AssociateAlreadyV
 import com.gabrielsena.cooperative_voting_api.domain.exception.VotingSessionClosedException;
 import com.gabrielsena.cooperative_voting_api.domain.exception.VotingSessionNotFoundException;
 import com.gabrielsena.cooperative_voting_api.domain.vote.dto.CastVoteResponse;
+import com.gabrielsena.cooperative_voting_api.presentation.mobile.VoteSelectionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -28,6 +29,9 @@ class VoteControllerTest {
 
     @MockitoBean
     private VoteService voteService;
+
+    @MockitoBean
+    private VoteSelectionService voteSelectionService;
 
     @Test
     void shouldReturnCreatedWhenVoteIsCastSuccessfully() throws Exception {
