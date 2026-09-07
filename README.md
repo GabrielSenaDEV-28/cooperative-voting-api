@@ -66,9 +66,10 @@ The application uses environment variables for database credentials and for the
 mobile callback base URL.
 
 | Variable | Required | Description | Default |
-| --- | --- | --- | --- |
-| `DB_USERNAME` | Yes | PostgreSQL username | - |
-| `DB_PASSWORD` | Yes | PostgreSQL password | - |
+| --- | --- | --- | - |
+| `DB_URL` | No | PostgreSQL JDBC connection URL | `jdbc:postgresql://localhost:5432/cooperative_voting` |
+| `DB_USERNAME` | Yes | PostgreSQL username | postgres |
+| `DB_PASSWORD` | Yes | PostgreSQL password | your_password |
 | `CALLBACK_BASE_URL` | No | Base URL used when generating mobile callback URLs | `http://localhost:8080` |
 
 The callback base URL is configurable so the same application can generate
@@ -544,3 +545,17 @@ Expected rejected operations, such as duplicate votes or attempts to vote in a
 closed session, are logged at `WARN` level.
 
 Vote choices are intentionally not included in logs.
+
+## Cloud Deployment
+
+The application is deployed on Railway and is publicly available at:
+
+https://cooperative-voting-api-production.up.railway.app
+
+The production environment uses PostgreSQL hosted on Railway. Database
+credentials and environment-specific configuration are provided through the
+environment variables described in the Configuration section.
+
+The production `CALLBACK_BASE_URL` is:
+
+https://cooperative-voting-api-production.up.railway.app
