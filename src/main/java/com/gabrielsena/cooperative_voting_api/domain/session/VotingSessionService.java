@@ -6,6 +6,7 @@ import com.gabrielsena.cooperative_voting_api.domain.session.dto.OpenVotingSessi
 import com.gabrielsena.cooperative_voting_api.domain.session.dto.OpenVotingSessionResponse;
 import com.gabrielsena.cooperative_voting_api.domain.topic.VotingTopic;
 import com.gabrielsena.cooperative_voting_api.domain.topic.VotingTopicRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VotingSessionService {
@@ -30,6 +32,12 @@ public class VotingSessionService {
                 .orElseThrow(() -> new VotingTopicNotFoundException("Voting topic not found"));
 
         if(votingSessionRepository.existsByVotingTopic_Id(topicId)) {
+
+            log.warn(
+                    "Voting session creation rejected because session already exists: topicId={}",
+                    topicId
+            );
+
             throw new VotingSessionAlreadyExistsException("Voting session already exists for this topic");
         }
 
@@ -41,6 +49,12 @@ public class VotingSessionService {
         VotingSession session = new VotingSession(topic, openedAt, closesAt);
 
         VotingSession savedSession = votingSessionRepository.save(session);
+
+        log.info(
+                "Voting session opened: topicId={}, closesAt={}",
+                topicId,
+                savedSession.getClosesAt()
+        );
 
         return new OpenVotingSessionResponse(
                 savedSession.getId(),

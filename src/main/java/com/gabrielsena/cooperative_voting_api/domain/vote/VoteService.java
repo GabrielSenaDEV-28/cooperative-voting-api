@@ -11,6 +11,7 @@ import com.gabrielsena.cooperative_voting_api.domain.vote.dto.CastVoteRequest;
 import com.gabrielsena.cooperative_voting_api.domain.vote.dto.CastVoteResponse;
 import com.gabrielsena.cooperative_voting_api.domain.vote.dto.VotingResultResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VoteService {
@@ -34,27 +36,58 @@ public class VoteService {
 
         VotingSession session = votingSessionRepository
                 .findByVotingTopic_Id(topicId)
-                .orElseThrow(() -> new VotingSessionNotFoundException("Voting session not found for this topic"));
+                .orElseThrow(() ->
+                        new VotingSessionNotFoundException(
+                                "Voting session not found for this topic"
+                        )
+                );
 
         Instant now = Instant.now(clock);
 
-        if(!now.isBefore(session.getClosesAt())) {
-            throw new VotingSessionClosedException("Voting session is closed");
+        if (!now.isBefore(session.getClosesAt())) {
+
+            log.warn(
+                    "Vote rejected because session is closed: topicId={}, associateId={}",
+                    topicId,
+                    request.associateId()
+            );
+
+            throw new VotingSessionClosedException(
+                    "Voting session is closed"
+            );
         }
 
-        if(voteRepository.existsByVotingTopic_IdAndAssociateId(topicId, request.associateId())) {
-            throw new AssociateAlreadyVotedException("Associate has already voted on this topic");
+        if (voteRepository.existsByVotingTopic_IdAndAssociateId(
+                topicId,
+                request.associateId()
+        )) {
+
+            log.warn(
+                    "Duplicate vote rejected: topicId={}, associateId={}",
+                    topicId,
+                    request.associateId()
+            );
+
+            throw new AssociateAlreadyVotedException(
+                    "Associate has already voted on this topic"
+            );
         }
 
         Vote vote = new Vote(
-            session.getVotingTopic(),
-            request.associateId(),
-            request.choice(),
-            now
+                session.getVotingTopic(),
+                request.associateId(),
+                request.choice(),
+                now
         );
 
         try {
             Vote savedVote = voteRepository.saveAndFlush(vote);
+
+            log.info(
+                    "Vote registered: topicId={}, associateId={}",
+                    topicId,
+                    request.associateId()
+            );
 
             return new CastVoteResponse(
                     savedVote.getId(),
@@ -63,7 +96,15 @@ public class VoteService {
                     savedVote.getChoice(),
                     savedVote.getVotedAt()
             );
+
         } catch (DataIntegrityViolationException e) {
+
+            log.warn(
+                    "Duplicate vote rejected by database constraint: topicId={}, associateId={}",
+                    topicId,
+                    request.associateId()
+            );
+
             throw new AssociateAlreadyVotedException(
                     "Associate has already voted on this topic"
             );
