@@ -83,12 +83,6 @@ public class VoteService {
         try {
             Vote savedVote = voteRepository.saveAndFlush(vote);
 
-            log.info(
-                    "Vote registered: topicId={}, associateId={}",
-                    topicId,
-                    request.associateId()
-            );
-
             return new CastVoteResponse(
                     savedVote.getId(),
                     savedVote.getVotingTopic().getId(),
